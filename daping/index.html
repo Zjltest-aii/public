@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>排队显示大屏 - 中医科室</title>
+    <style>
+        * {margin: 0; padding: 0; box-sizing: border-box; font-family: "微软雅黑";}
+        body {background: #0a1629; color: white; padding: 40px 20px;}
+        .title {text-align: center; font-size: 36px; margin-bottom: 40px; color: #ffd700;}
+        .current-call {background: #19be6b; padding: 30px; text-align: center; border-radius: 12px; margin-bottom: 30px;}
+        .current-call h3 {font-size: 24px; margin-bottom: 10px;}
+        .current-call .num {font-size: 60px; font-weight: bold; color: #ffd700;}
+        .queue {max-width: 800px; margin: 0 auto;}
+        .queue h3 {font-size: 24px; margin-bottom: 20px; color: #2d8cf0;}
+        .item {display: flex; justify-content: space-between; padding: 15px 20px; background: rgba(255,255,255,0.1); margin-bottom: 8px; border-radius: 6px; font-size: 18px;}
+        .calling {color: #ff7d00; font-weight: bold;}
+    </style>
+</head>
+<body>
+    <h1 class="title">中医科室 - 实时排队叫号</h1>
+    
+    <div class="current-call">
+        <h3>正在就诊</h3>
+        <div id="current" class="num">等待叫号</div>
+    </div>
+
+    <div class="queue">
+        <h3>排队等候列表</h3>
+        <div id="queueList"></div>
+    </div>
+
+    <script>
+        // 实时刷新显示
+        function refreshScreen() {
+            const queue = JSON.parse(localStorage.getItem('queue') || '[]');
+            const current = queue.find(i => i.status === '叫号中');
+            document.getElementById('current').innerText = current ? `${current.num}号 ${current.name}` : '等待叫号';
+
+            // 渲染等候列表
+            const list = document.getElementById('queueList');
+            list.innerHTML = '';
+            queue.filter(i => i.status === '等待中').forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'item';
+                div.innerText = `${item.num}号 - ${item.name}`;
+                list.appendChild(div);
+            });
+        }
+
+        // 每秒自动刷新
+        setInterval(refreshScreen, 1000);
+        window.onload = refreshScreen;
+    </script>
+</body>
+</html>

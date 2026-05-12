@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>医生叫号 - 中医科室</title>
+    <style>
+        * {margin: 0; padding: 0; box-sizing: border-box; font-family: "微软雅黑";}
+        body {background: #f5f5f5; padding: 20px;}
+        .container {max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px;}
+        h2 {text-align: center; color: #19be6b; margin-bottom: 20px;}
+        .time-set {display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;}
+        .time-set input {padding: 8px; width: 120px; border: 1px solid #ddd; border-radius: 6px;}
+        .time-set button {padding: 8px 16px; background: #2d8cf0; color: white; border: none; border-radius: 6px; cursor: pointer;}
+        .call-box {display: flex; gap: 15px; margin: 20px 0; flex-wrap: wrap;}
+        .call-btn {padding: 15px 25px; font-size: 18px; background: #ff7d00; color: white; border: none; border-radius: 8px; cursor: pointer;}
+        .reset-btn {background: #ff4d4f;}
+        .current {font-size: 24px; text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px; margin: 20px 0; font-weight: bold;}
+        .queue-list {margin-top: 20px;}
+        .queue-item {padding: 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between;}
+        .waiting {color: #2d8cf0;}
+        .calling {color: #ff7d00; font-weight: bold;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>中医科室 - 医生叫号系统</h2>
+        
+        <!-- 取号时间设置 -->
+        <div class="time-set">
+            <input type="time" id="startTime" value="08:00">
+            <input type="time" id="endTime" value="17:00">
+            <button onclick="saveTime()">保存取号时间</button>
+        </div>
+
+        <!-- 叫号按钮 -->
+        <div class="call-box">
+            <button class="call-btn" onclick="callNumber()">下一号</button>
+            <button class="call-btn" onclick="passNumber()">过号</button>
+            <button class="call-btn reset-btn" onclick="resetQueue()">今日重置排队</button>
+        </div>
+
+        <!-- 当前叫号 -->
+        <div class="current">当前叫号：<span id="currentNum">无</span></div>
+
+        <!-- 排队列表 -->
+        <div class="queue-list" id="queueList"></div>
+    </div>
+
+    <script>
+        // 保存取号时间
+        function saveTime() {
+            const start = document.getElementById('startTime').value;
+            const end = document.getElementById('endTime').value;
+            localStorage.setItem('timeConfig', JSON.stringify({start, end}));
+            alert('取号时间设置成功！');
+        }
+
+        // 渲染排队列表
+        function renderQueue() {
+            const queue = JSON.parse(localStorage.getItem('queue') || '[]');
+            const list = document.getElementById('queueList');
+            list.innerHTML = '';
+            queue.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'queue-item';
+                div.innerHTML = `
+                    <span>${item.num}号 - ${item.name}</span>
+                    <span class="${item.status === '叫号中' ? 'calling' : 'waiting'}">${item.status}</span>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        // 叫号
+        function callNumber() {
+            let queue = JSON.parse(localStorage.getItem('queue') || '[]');
+            // 找到第一个等待中的患者
+            const index = queue.findIndex(i => i.status === '等待中');
+            if (index === -1) {
+                document.getElementById('currentNum').innerText = '排队已完成';
+                return;
+            }
+            // 重置上一个叫号状态
+            queue.forEach(i => i.status === '叫号中' && (i.status = '已就诊'));
+            // 设置当前叫号
+            queue[index].status = '叫号中';
+            localStorage.setItem('queue', JSON.stringify(queue));
+            document.getElementById('currentNum').innerText = `${queue[index].num}号 ${queue[index].name}`;
+            renderQueue();
+        }
+
+        // 过号
+        function passNumber() {
+            let queue = JSON.parse(localStorage.getItem('queue') || '[]');
+            const index = queue.findIndex(i => i.status === '叫号中');
+            if (index !== -1) {
+                queue[index].status = '已过号';
+                localStorage.setItem('queue', JSON.stringify(queue));
+                callNumber();
+            }
+        }
+
+        // 重置排队
+        function resetQueue() {
+            if (!confirm('确定清空今日所有排队数据？')) return;
+            localStorage.setItem('queue', '[]');
+            localStorage.setItem('lastDate', new Date().toDateString());
+            document.getElementById('currentNum').innerText = '无';
+            renderQueue();
+        }
+
+        // 初始化加载时间配置
+        window.onload = function () {
+            const {start, end} = JSON.parse(localStorage.getItem('timeConfig') || '{"start":"08:00","end":"17:00"}');
+            document.getElementById('startTime').value = start;
+            document.getElementById('endTime').value = end;
+            renderQueue();
+        };
+
+        // 自动刷新
+        setInterval(renderQueue, 1000);
+    </script>
+</body>
+</html>

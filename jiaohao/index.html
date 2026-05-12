@@ -13,6 +13,7 @@
         .time-set button {padding: 8px 16px; background: #2d8cf0; color: white; border: none; border-radius: 6px; cursor: pointer;}
         .call-box {display: flex; gap: 15px; margin: 20px 0; flex-wrap: wrap;}
         .call-btn {padding: 15px 25px; font-size: 18px; background: #ff7d00; color: white; border: none; border-radius: 8px; cursor: pointer;}
+        .repeat-btn {background: #9370DB;}
         .reset-btn {background: #ff4d4f;}
         .current {font-size: 24px; text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px; margin: 20px 0; font-weight: bold;}
         .queue-list {margin-top: 20px;}
@@ -32,9 +33,10 @@
             <button onclick="saveTime()">保存取号时间</button>
         </div>
 
-        <!-- 叫号按钮 -->
+        <!-- 叫号按钮 新增重复叫号 -->
         <div class="call-box">
             <button class="call-btn" onclick="callNumber()">下一号</button>
+            <button class="call-btn repeat-btn" onclick="repeatCall()">重复叫号</button>
             <button class="call-btn" onclick="passNumber()">过号</button>
             <button class="call-btn reset-btn" onclick="resetQueue()">今日重置排队</button>
         </div>
@@ -80,7 +82,7 @@
             });
         }
 
-        // 叫号
+        // 下一号叫号
         function callNumber() {
             let queue = JSON.parse(localStorage.getItem('queue') || '[]');
             // 找到第一个等待中的患者
@@ -100,6 +102,18 @@
             // 语音播报
             voiceSpeak(`请${patient.num}号${patient.name}患者，到中医科室就诊`);
             renderQueue();
+        }
+
+        // 新增：重复叫号功能
+        function repeatCall() {
+            let queue = JSON.parse(localStorage.getItem('queue') || '[]');
+            const current = queue.find(i => i.status === '叫号中');
+            if (!current) {
+                voiceSpeak('当前暂无正在叫号的患者');
+                return;
+            }
+            // 只重复播报，不改变状态、不跳下一位
+            voiceSpeak(`请${current.num}号${current.name}患者，尽快到中医科室就诊`);
         }
 
         // 过号

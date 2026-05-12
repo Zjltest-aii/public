@@ -25,48 +25,34 @@
 <body>
     <div class="container">
         <h2>中医科室 - 医生叫号系统</h2>
-        
-        <!-- 取号时间设置 -->
         <div class="time-set">
             <input type="time" id="startTime" value="08:00">
             <input type="time" id="endTime" value="17:00">
             <button onclick="saveTime()">保存取号时间</button>
         </div>
-
-        <!-- 叫号按钮 新增重复叫号 -->
         <div class="call-box">
             <button class="call-btn" onclick="callNumber()">下一号</button>
             <button class="call-btn repeat-btn" onclick="repeatCall()">重复叫号</button>
             <button class="call-btn" onclick="passNumber()">过号</button>
             <button class="call-btn reset-btn" onclick="resetQueue()">今日重置排队</button>
         </div>
-
-        <!-- 当前叫号 -->
         <div class="current">当前叫号：<span id="currentNum">无</span></div>
-
-        <!-- 排队列表 -->
         <div class="queue-list" id="queueList"></div>
     </div>
 
     <script>
-        // 语音播报函数
         function voiceSpeak(text) {
             window.speechSynthesis.cancel();
-            const utter = new SpeechSynthesisUtterance(text);
-            utter.lang = 'zh-CN';
-            utter.rate = 1;
-            window.speechSynthesis.speak(utter);
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = 'zh-CN'; u.rate = 1;
+            window.speechSynthesis.speak(u);
         }
-
-        // 保存取号时间
         function saveTime() {
             const start = document.getElementById('startTime').value;
             const end = document.getElementById('endTime').value;
             localStorage.setItem('timeConfig', JSON.stringify({start, end}));
-            alert('取号时间设置成功！');
+            alert('设置成功');
         }
-
-        // 渲染排队列表
         function renderQueue() {
             const queue = JSON.parse(localStorage.getItem('queue') || '[]');
             const list = document.getElementById('queueList');
@@ -74,79 +60,55 @@
             queue.forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'queue-item';
-                div.innerHTML = `
-                    <span>${item.num}号 - ${item.name}</span>
-                    <span class="${item.status === '叫号中' ? 'calling' : 'waiting'}">${item.status}</span>
-                `;
+                div.innerHTML = `<span>${item.num}号 - ${item.name}</span><span class="${item.status === '叫号中' ? 'calling' : 'waiting'}">${item.status}</span>`;
                 list.appendChild(div);
             });
         }
-
-        // 下一号叫号
         function callNumber() {
             let queue = JSON.parse(localStorage.getItem('queue') || '[]');
-            // 找到第一个等待中的患者
             const index = queue.findIndex(i => i.status === '等待中');
             if (index === -1) {
                 document.getElementById('currentNum').innerText = '排队已完成';
-                voiceSpeak('今日排队已结束，请明天再来');
+                voiceSpeak('今日排队已结束');
                 return;
             }
-            // 重置上一个叫号状态
             queue.forEach(i => i.status === '叫号中' && (i.status = '已就诊'));
-            // 设置当前叫号
             queue[index].status = '叫号中';
             localStorage.setItem('queue', JSON.stringify(queue));
-            const patient = queue[index];
-            document.getElementById('currentNum').innerText = `${patient.num}号 ${patient.name}`;
-            // 语音播报
-            voiceSpeak(`请${patient.num}号${patient.name}患者，到中医科室就诊`);
+            const p = queue[index];
+            document.getElementById('currentNum').innerText = `${p.num}号 ${p.name}`;
+            voiceSpeak(`请${p.num}号${p.name}患者到中医科室就诊`);
             renderQueue();
         }
-
-        // 新增：重复叫号功能
         function repeatCall() {
-            let queue = JSON.parse(localStorage.getItem('queue') || '[]');
-            const current = queue.find(i => i.status === '叫号中');
-            if (!current) {
-                voiceSpeak('当前暂无正在叫号的患者');
-                return;
-            }
-            // 只重复播报，不改变状态、不跳下一位
-            voiceSpeak(`请${current.num}号${current.name}患者，尽快到中医科室就诊`);
+            const queue = JSON.parse(localStorage.getItem('queue') || '[]');
+            const cur = queue.find(i => i.status === '叫号中');
+            if (!cur) { voiceSpeak('当前无叫号患者'); return; }
+            voiceSpeak(`请${cur.num}号${cur.name}患者尽快就诊`);
         }
-
-        // 过号
         function passNumber() {
             let queue = JSON.parse(localStorage.getItem('queue') || '[]');
-            const index = queue.findIndex(i => i.status === '叫号中');
-            if (index !== -1) {
-                queue[index].status = '已过号';
+            const idx = queue.findIndex(i => i.status === '叫号中');
+            if (idx !== -1) {
+                queue[idx].status = '已过号';
                 localStorage.setItem('queue', JSON.stringify(queue));
-                voiceSpeak(`${queue[index].num}号患者已过号，请重新排队`);
+                voiceSpeak(`${queue[idx].num}号患者已过号`);
                 callNumber();
             }
         }
-
-        // 重置排队
         function resetQueue() {
-            if (!confirm('确定清空今日所有排队数据？')) return;
+            if (!confirm('确定重置？')) return;
             localStorage.setItem('queue', '[]');
             localStorage.setItem('lastDate', new Date().toDateString());
             document.getElementById('currentNum').innerText = '无';
             renderQueue();
-            voiceSpeak('今日排队已清空');
         }
-
-        // 初始化加载时间配置
-        window.onload = function () {
-            const {start, end} = JSON.parse(localStorage.getItem('timeConfig') || '{"start":"08:00","end":"17:00"}');
-            document.getElementById('startTime').value = start;
-            document.getElementById('endTime').value = end;
+        window.onload = function(){
+            const cfg = JSON.parse(localStorage.getItem('timeConfig') || '{"start":"08:00","end":"17:00"}');
+            document.getElementById('startTime').value = cfg.start;
+            document.getElementById('endTime').value = cfg.end;
             renderQueue();
         };
-
-        // 自动刷新
         setInterval(renderQueue, 1000);
     </script>
 </body>

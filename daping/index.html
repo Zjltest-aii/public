@@ -30,11 +30,29 @@
     </div>
 
     <script>
-        // 实时刷新显示
+        let lastCallText = '';
+        // 语音播报
+        function voiceSpeak(text) {
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.lang = 'zh-CN';
+            utter.rate = 1;
+            window.speechSynthesis.speak(utter);
+        }
+
+        // 实时刷新显示+语音
         function refreshScreen() {
             const queue = JSON.parse(localStorage.getItem('queue') || '[]');
             const current = queue.find(i => i.status === '叫号中');
-            document.getElementById('current').innerText = current ? `${current.num}号 ${current.name}` : '等待叫号';
+            let nowText = current ? `${current.num}号${current.name}` : '等待叫号';
+
+            // 有新叫号才播报，避免循环重复播报
+            if(nowText !== lastCallText && current){
+                voiceSpeak(`请${current.num}号${current.name}患者，到中医科室就诊`);
+                lastCallText = nowText;
+            }
+
+            document.getElementById('current').innerText = nowText;
 
             // 渲染等候列表
             const list = document.getElementById('queueList');

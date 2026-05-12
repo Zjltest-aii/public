@@ -29,29 +29,21 @@
     </div>
 
     <script>
-        // 读取本地存储的取号时间设置
         function getTimeConfig() {
             return JSON.parse(localStorage.getItem('timeConfig') || '{"start":"08:00","end":"17:00"}');
         }
-
-        // 格式化时间：HH:mm
         function formatTime(date) {
             const h = String(date.getHours()).padStart(2, '0');
             const m = String(date.getMinutes()).padStart(2, '0');
             return `${h}:${m}`;
         }
-
-        // 判断是否在取号时间内
         function isInTime() {
             const {start, end} = getTimeConfig();
             const now = formatTime(new Date());
             return now >= start && now <= end;
         }
-
-        // 渲染时间范围
         document.getElementById('timeRange').innerText = `${getTimeConfig().start} ~ ${getTimeConfig().end}`;
 
-        // 取号按钮点击
         document.getElementById('getNumber').onclick = function () {
             const name = document.getElementById('name').value.trim();
             if (!name) {
@@ -63,24 +55,19 @@
                 return;
             }
 
-            // 当天日期标记，用于每天重置号码
             const today = new Date().toDateString();
             let queue = JSON.parse(localStorage.getItem('queue') || '[]');
             let lastDate = localStorage.getItem('lastDate') || '';
 
-            // 跨天重置号码
             if (lastDate !== today) {
                 queue = [];
                 localStorage.setItem('lastDate', today);
             }
 
-            // 生成新号码
             const newNum = queue.length + 1;
-            const patient = {name, num: newNum, status: '等待中'};
-            queue.push(patient);
+            queue.push({name, num: newNum, status: '等待中'});
             localStorage.setItem('queue', JSON.stringify(queue));
 
-            // 显示成功
             document.getElementById('success').innerText = `取号成功！您是${newNum}号`;
             document.getElementById('name').value = '';
             document.getElementById('tip').innerText = '';

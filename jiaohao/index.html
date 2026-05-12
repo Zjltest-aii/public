@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<title>医生叫号 - 中医科室</title>
+<title>医生叫号</title>
 <meta charset="UTF-8">
 <style>
     *{margin:0;padding:0;box-sizing:border-box;font-family:微软雅黑;}
@@ -36,10 +36,22 @@
     <div id="queueList"></div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js"></script>
 <script>
-const QUEUE_KEY = 'hospital_queue';
-const LAST_DATE_KEY = 'last_date';
-const TIME_CONFIG_KEY = 'time_config';
+const firebaseConfig = {
+    apiKey: "AIzaSyD-9tSr4K6B3XZ7K8Z9X0Y1W2V3U4T5S6A7S8D9F0G1H2J3K4L5M6N7O8P9Q0R1S2T3U4V5W6X7Y8Z9",
+    authDomain: "hospital-queue-12345.firebaseapp.com",
+    databaseURL: "https://hospital-queue-12345-default-rtdb.firebaseio.com",
+    projectId: "hospital-queue-12345",
+    storageBucket: "hospital-queue-12345.appspot.com",
+    messagingSenderId: "123456789012",
+    appId: "1:123456789012:web:abcdef1234567890abcdef"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const queueRef = db.ref('queue');
+const timeConfigRef = db.ref('timeConfig');
 let queue = [];
 
 // 语音播报
@@ -50,15 +62,15 @@ function voiceSpeak(text) {
     window.speechSynthesis.speak(u);
 }
 
-// 保存取号时间
-function saveTime() {
+// 保存时间
+async function saveTime() {
     const s = document.getElementById('startTime').value;
     const e = document.getElementById('endTime').value;
-    localStorage.setItem(TIME_CONFIG_KEY, JSON.stringify({start:s, end:e}));
+    await timeConfigRef.set({start:s, end:e});
     alert('设置成功');
 }
 
-// 渲染队列
+// 渲染
 function render() {
     const list = document.getElementById('queueList');
     list.innerHTML = '';
@@ -72,25 +84,27 @@ function render() {
     document.getElementById('currentNum').innerText = cur ? `${cur.num}号 ${cur.name}` : '无';
 }
 
+// 监听云端队列变化（实时同步）
+queueRef.on('value', (snap) => {
+    queue = snap.val() || [];
+    render();
+});
+
 // 下一号
-function callNumber() {
-    queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+async function callNumber() {
     const idx = queue.findIndex(i => i.status === '等待中');
     if (idx === -1) {
         voiceSpeak('排队已完成');
         return;
     }
-    // 重置之前的叫号中状态
     queue.forEach(i => i.status === '叫号中' && (i.status = '已就诊'));
     queue[idx].status = '叫号中';
-    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
-    render();
+    await queueRef.set(queue);
     voiceSpeak(`请${queue[idx].num}号${queue[idx].name}患者到中医科室就诊`);
 }
 
 // 重复叫号
 function repeatCall() {
-    queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
     const cur = queue.find(i => i.status === '叫号中');
     if (!cur) {
         voiceSpeak('当前无叫号患者');
@@ -100,46 +114,28 @@ function repeatCall() {
 }
 
 // 过号
-function passNumber() {
-    queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+async function passNumber() {
     const idx = queue.findIndex(i => i.status === '叫号中');
     if (idx !== -1) {
         queue[idx].status = '已过号';
-        localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
-        render();
-        callNumber(); // 自动叫下一号
+        await queueRef.set(queue);
+        callNumber();
     }
 }
 
-// 重置队列
-function resetQueue() {
-    if (!confirm('确定重置今日排队？')) return;
-    queue = [];
-    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
-    localStorage.setItem(LAST_DATE_KEY, new Date().toDateString());
-    render();
+// 重置
+async function resetQueue() {
+    if (!confirm('确定重置？')) return;
+    await queueRef.set([]);
+    await db.ref('lastDate').set(new Date().toDateString());
 }
 
-// 实时刷新（每1秒拉取最新队列）
-setInterval(() => {
-    queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
-    render();
-}, 1000);
-
-// 监听 storage 事件（跨标签同步）
-window.addEventListener('storage', (e) => {
-    if (e.key === QUEUE_KEY) {
-        queue = JSON.parse(e.newValue || '[]');
-        render();
-    }
-});
-
-// 初始化时间配置
-window.onload = () => {
-    const cfg = JSON.parse(localStorage.getItem(TIME_CONFIG_KEY) || '{"start":"08:00","end":"17:00"}');
+// 初始化时间
+timeConfigRef.once('value', (snap) => {
+    const cfg = snap.val() || {start:"08:00", end:"17:00"};
     document.getElementById('startTime').value = cfg.start;
     document.getElementById('endTime').value = cfg.end;
-};
+});
 </script>
 </body>
 </html>

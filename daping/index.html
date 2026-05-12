@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<title>叫号大屏</title>
+<title>叫号大屏 - 中医科室</title>
 <meta charset="UTF-8">
 <style>
     *{margin:0;padding:0;box-sizing:border-box;font-family:微软雅黑;}
@@ -16,40 +16,52 @@
 <div id="queueList"></div>
 
 <script>
+const QUEUE_KEY = 'hospital_queue';
 let queue = [];
-let lastNum = null;
-const channel = new BroadcastChannel('hospital_queue');
+let lastCalledNum = null;
 
+// 语音播报
 function voiceSpeak(text) {
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    u.lang='zh-CN'; window.speechSynthesis.speak(u);
+    u.lang='zh-CN';
+    window.speechSynthesis.speak(u);
 }
-function refresh() {
-    const cur=queue.find(i=>i.status=='叫号中');
-    document.getElementById('current').innerText=cur?`${cur.num}号 ${cur.name}`:'等待叫号';
-    const list=document.getElementById('queueList');
-    list.innerHTML='';
-    queue.filter(i=>i.status=='等待中').forEach(i=>{
-        const d=document.createElement('div');
-        d.className='item';
-        d.innerText=`${i.num}号 - ${i.name}`;
-        list.appendChild(d);
+
+// 刷新大屏
+function refreshScreen() {
+    const cur = queue.find(i => i.status === '叫号中');
+    document.getElementById('current').innerText = cur ? `${cur.num}号 ${cur.name}` : '等待叫号';
+    
+    const list = document.getElementById('queueList');
+    list.innerHTML = '';
+    queue.filter(i => i.status === '等待中').forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'item';
+        div.innerText = `${item.num}号 - ${item.name}`;
+        list.appendChild(div);
     });
-    if(cur && cur.num!==lastNum){
+    
+    // 新叫号时播报
+    if (cur && cur.num !== lastCalledNum) {
         voiceSpeak(`请${cur.num}号${cur.name}患者到中医科室就诊`);
-        lastNum=cur.num;
+        lastCalledNum = cur.num;
     }
 }
-channel.onmessage=e=>{
-    if(e.data.type=='sync'){
-        queue=e.data.queue; refresh();
+
+// 实时刷新（每1秒拉取最新队列）
+setInterval(() => {
+    queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+    refreshScreen();
+}, 1000);
+
+// 监听 storage 事件（跨标签同步）
+window.addEventListener('storage', (e) => {
+    if (e.key === QUEUE_KEY) {
+        queue = JSON.parse(e.newValue || '[]');
+        refreshScreen();
     }
-};
-setInterval(()=>{
-    queue=JSON.parse(localStorage.getItem('queue')||'[]');
-    refresh();
-},1000);
+});
 </script>
 </body>
 </html>

@@ -47,6 +47,15 @@
     </div>
 
     <script>
+        // 语音播报函数
+        function voiceSpeak(text) {
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.lang = 'zh-CN';
+            utter.rate = 1;
+            window.speechSynthesis.speak(utter);
+        }
+
         // 保存取号时间
         function saveTime() {
             const start = document.getElementById('startTime').value;
@@ -78,6 +87,7 @@
             const index = queue.findIndex(i => i.status === '等待中');
             if (index === -1) {
                 document.getElementById('currentNum').innerText = '排队已完成';
+                voiceSpeak('今日排队已结束，请明天再来');
                 return;
             }
             // 重置上一个叫号状态
@@ -85,7 +95,10 @@
             // 设置当前叫号
             queue[index].status = '叫号中';
             localStorage.setItem('queue', JSON.stringify(queue));
-            document.getElementById('currentNum').innerText = `${queue[index].num}号 ${queue[index].name}`;
+            const patient = queue[index];
+            document.getElementById('currentNum').innerText = `${patient.num}号 ${patient.name}`;
+            // 语音播报
+            voiceSpeak(`请${patient.num}号${patient.name}患者，到中医科室就诊`);
             renderQueue();
         }
 
@@ -96,6 +109,7 @@
             if (index !== -1) {
                 queue[index].status = '已过号';
                 localStorage.setItem('queue', JSON.stringify(queue));
+                voiceSpeak(`${queue[index].num}号患者已过号，请重新排队`);
                 callNumber();
             }
         }
@@ -107,6 +121,7 @@
             localStorage.setItem('lastDate', new Date().toDateString());
             document.getElementById('currentNum').innerText = '无';
             renderQueue();
+            voiceSpeak('今日排队已清空');
         }
 
         // 初始化加载时间配置

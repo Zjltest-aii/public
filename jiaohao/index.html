@@ -1,115 +1,107 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <title>医生叫号 - 中医科室</title>
-    <style>
-        * {margin: 0; padding: 0; box-sizing: border-box; font-family: "微软雅黑";}
-        body {background: #f5f5f5; padding: 20px;}
-        .container {max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px;}
-        h2 {text-align: center; color: #19be6b; margin-bottom: 20px;}
-        .time-set {display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;}
-        .time-set input {padding: 8px; width: 120px; border: 1px solid #ddd; border-radius: 6px;}
-        .time-set button {padding: 8px 16px; background: #2d8cf0; color: white; border: none; border-radius: 6px; cursor: pointer;}
-        .call-box {display: flex; gap: 15px; margin: 20px 0; flex-wrap: wrap;}
-        .call-btn {padding: 15px 25px; font-size: 18px; background: #ff7d00; color: white; border: none; border-radius: 8px; cursor: pointer;}
-        .repeat-btn {background: #9370DB;}
-        .reset-btn {background: #ff4d4f;}
-        .current {font-size: 24px; text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px; margin: 20px 0; font-weight: bold;}
-        .queue-list {margin-top: 20px;}
-        .queue-item {padding: 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between;}
-        .waiting {color: #2d8cf0;}
-        .calling {color: #ff7d00; font-weight: bold;}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h2>中医科室 - 医生叫号系统</h2>
-        <div class="time-set">
-            <input type="time" id="startTime" value="08:00">
-            <input type="time" id="endTime" value="17:00">
-            <button onclick="saveTime()">保存取号时间</button>
-        </div>
-        <div class="call-box">
-            <button class="call-btn" onclick="callNumber()">下一号</button>
-            <button class="call-btn repeat-btn" onclick="repeatCall()">重复叫号</button>
-            <button class="call-btn" onclick="passNumber()">过号</button>
-            <button class="call-btn reset-btn" onclick="resetQueue()">今日重置排队</button>
-        </div>
-        <div class="current">当前叫号：<span id="currentNum">无</span></div>
-        <div class="queue-list" id="queueList"></div>
-    </div>
+<title>医生叫号</title>
+<meta charset="UTF-8">
+<style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:微软雅黑;}
+    body{background:#f5f5f5;padding:20px;}
+    .container{max-width:800px;margin:0 auto;background:white;padding:30px;border-radius:12px;}
+    h2{text-align:center;color:#19be6b;margin-bottom:20px;}
+    .time-set{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;}
+    .time-set input{padding:8px;width:120px;border:1px solid #ddd;border-radius:6px;}
+    .time-set button{padding:8px 16px;background:#2d8cf0;color:white;border:none;border-radius:6px;cursor:pointer;}
+    .call-box{display:flex;gap:15px;margin:20px 0;flex-wrap:wrap;}
+    .call-btn{padding:15px 25px;font-size:18px;background:#ff7d00;color:white;border:none;border-radius:8px;cursor:pointer;}
+    .repeat-btn{background:#9370DB;}
+    .reset-btn{background:#ff4d4f;}
+    .current{font-size:24px;text-align:center;padding:20px;background:#f8f9fa;border-radius:8px;margin:20px 0;font-weight:bold;}
+    .queue-item{padding:12px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;}
+    .calling{color:#ff7d00;font-weight:bold;}
+</style>
 
-    <script>
-        function voiceSpeak(text) {
-            window.speechSynthesis.cancel();
-            const u = new SpeechSynthesisUtterance(text);
-            u.lang = 'zh-CN'; u.rate = 1;
-            window.speechSynthesis.speak(u);
-        }
-        function saveTime() {
-            const start = document.getElementById('startTime').value;
-            const end = document.getElementById('endTime').value;
-            localStorage.setItem('timeConfig', JSON.stringify({start, end}));
-            alert('设置成功');
-        }
-        function renderQueue() {
-            const queue = JSON.parse(localStorage.getItem('queue') || '[]');
-            const list = document.getElementById('queueList');
-            list.innerHTML = '';
-            queue.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'queue-item';
-                div.innerHTML = `<span>${item.num}号 - ${item.name}</span><span class="${item.status === '叫号中' ? 'calling' : 'waiting'}">${item.status}</span>`;
-                list.appendChild(div);
-            });
-        }
-        function callNumber() {
-            let queue = JSON.parse(localStorage.getItem('queue') || '[]');
-            const index = queue.findIndex(i => i.status === '等待中');
-            if (index === -1) {
-                document.getElementById('currentNum').innerText = '排队已完成';
-                voiceSpeak('今日排队已结束');
-                return;
-            }
-            queue.forEach(i => i.status === '叫号中' && (i.status = '已就诊'));
-            queue[index].status = '叫号中';
-            localStorage.setItem('queue', JSON.stringify(queue));
-            const p = queue[index];
-            document.getElementById('currentNum').innerText = `${p.num}号 ${p.name}`;
-            voiceSpeak(`请${p.num}号${p.name}患者到中医科室就诊`);
-            renderQueue();
-        }
-        function repeatCall() {
-            const queue = JSON.parse(localStorage.getItem('queue') || '[]');
-            const cur = queue.find(i => i.status === '叫号中');
-            if (!cur) { voiceSpeak('当前无叫号患者'); return; }
-            voiceSpeak(`请${cur.num}号${cur.name}患者尽快就诊`);
-        }
-        function passNumber() {
-            let queue = JSON.parse(localStorage.getItem('queue') || '[]');
-            const idx = queue.findIndex(i => i.status === '叫号中');
-            if (idx !== -1) {
-                queue[idx].status = '已过号';
-                localStorage.setItem('queue', JSON.stringify(queue));
-                voiceSpeak(`${queue[idx].num}号患者已过号`);
-                callNumber();
-            }
-        }
-        function resetQueue() {
-            if (!confirm('确定重置？')) return;
-            localStorage.setItem('queue', '[]');
-            localStorage.setItem('lastDate', new Date().toDateString());
-            document.getElementById('currentNum').innerText = '无';
-            renderQueue();
-        }
-        window.onload = function(){
-            const cfg = JSON.parse(localStorage.getItem('timeConfig') || '{"start":"08:00","end":"17:00"}');
-            document.getElementById('startTime').value = cfg.start;
-            document.getElementById('endTime').value = cfg.end;
-            renderQueue();
-        };
-        setInterval(renderQueue, 1000);
-    </script>
-</body>
+<div class="container">
+    <h2>中医科室 - 医生叫号</h2>
+    <div class="time-set">
+        <input type="time" id="startTime" value="08:00">
+        <input type="time" id="endTime" value="17:00">
+        <button onclick="saveTime()">保存取号时间</button>
+    </div>
+    <div class="call-box">
+        <button class="call-btn" onclick="callNumber()">下一号</button>
+        <button class="call-btn repeat-btn" onclick="repeatCall()">重复叫号</button>
+        <button class="call-btn" onclick="passNumber()">过号</button>
+        <button class="call-btn reset-btn" onclick="resetQueue()">今日重置</button>
+    </div>
+    <div class="current">当前叫号：<span id="currentNum">无</span></div>
+    <div id="queueList"></div>
+</div>
+
+<script>
+let queue = [];
+const channel = new BroadcastChannel('hospital_queue');
+
+function voiceSpeak(text) {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang='zh-CN'; window.speechSynthesis.speak(u);
+}
+function saveTime() {
+    const s = document.getElementById('startTime').value;
+    const e = document.getElementById('endTime').value;
+    localStorage.setItem('timeConfig', JSON.stringify({start:s, end:e}));
+    alert('设置成功');
+}
+function sync() {
+    localStorage.setItem('queue', JSON.stringify(queue));
+    channel.postMessage({type:'sync', queue});
+    render();
+}
+function render() {
+    const list = document.getElementById('queueList');
+    list.innerHTML = '';
+    queue.forEach(i=>{
+        const d=document.createElement('div');
+        d.className='queue-item';
+        d.innerHTML=`<span>${i.num}号 ${i.name}</span><span class="${i.status=='叫号中'?'calling':''}">${i.status}</span>`;
+        list.appendChild(d);
+    });
+    const cur=queue.find(i=>i.status=='叫号中');
+    document.getElementById('currentNum').innerText=cur?`${cur.num}号 ${cur.name}`:'无';
+}
+function callNumber() {
+    const idx=queue.findIndex(i=>i.status=='等待中');
+    if(idx==-1){voiceSpeak('排队已完成');return;}
+    queue.forEach(i=>i.status=='叫号中'&&(i.status='已就诊'));
+    queue[idx].status='叫号中'; sync();
+    voiceSpeak(`请${queue[idx].num}号${queue[idx].name}患者到中医科室就诊`);
+}
+function repeatCall() {
+    const cur=queue.find(i=>i.status=='叫号中');
+    if(!cur){voiceSpeak('当前无叫号患者');return;}
+    voiceSpeak(`请${cur.num}号${cur.name}患者尽快就诊`);
+}
+function passNumber() {
+    const idx=queue.findIndex(i=>i.status=='叫号中');
+    if(idx!==-1){queue[idx].status='已过号';sync();callNumber();}
+}
+function resetQueue() {
+    if(!confirm('确定重置？'))return;
+    queue=[]; localStorage.setItem('lastDate',new Date().toDateString()); sync();
+}
+
+channel.onmessage=e=>{
+    if(e.data.type=='sync'){
+        queue=e.data.queue; render();
+    }
+};
+setInterval(()=>{
+    queue=JSON.parse(localStorage.getItem('queue')||'[]');
+    render();
+},1000);
+window.onload=()=>{
+    const cfg=JSON.parse(localStorage.getItem('timeConfig')||'{"start":"08:00","end":"17:00"}');
+    document.getElementById('startTime').value=cfg.start;
+    document.getElementById('endTime').value=cfg.end;
+};
+</script>
 </html>

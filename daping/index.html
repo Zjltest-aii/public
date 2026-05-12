@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<title>叫号大屏 - 中医科室</title>
+<title>叫号大屏</title>
 <meta charset="UTF-8">
 <style>
     *{margin:0;padding:0;box-sizing:border-box;font-family:微软雅黑;}
@@ -15,8 +15,21 @@
 <div class="current"><div id="current" class="num">等待叫号</div></div>
 <div id="queueList"></div>
 
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js"></script>
 <script>
-const QUEUE_KEY = 'hospital_queue';
+const firebaseConfig = {
+    apiKey: "AIzaSyD-9tSr4K6B3XZ7K8Z9X0Y1W2V3U4T5S6A7S8D9F0G1H2J3K4L5M6N7O8P9Q0R1S2T3U4V5W6X7Y8Z9",
+    authDomain: "hospital-queue-12345.firebaseapp.com",
+    databaseURL: "https://hospital-queue-12345-default-rtdb.firebaseio.com",
+    projectId: "hospital-queue-12345",
+    storageBucket: "hospital-queue-12345.appspot.com",
+    messagingSenderId: "123456789012",
+    appId: "1:123456789012:web:abcdef1234567890abcdef"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const queueRef = db.ref('queue');
 let queue = [];
 let lastCalledNum = null;
 
@@ -42,25 +55,16 @@ function refreshScreen() {
         list.appendChild(div);
     });
     
-    // 新叫号时播报
     if (cur && cur.num !== lastCalledNum) {
         voiceSpeak(`请${cur.num}号${cur.name}患者到中医科室就诊`);
         lastCalledNum = cur.num;
     }
 }
 
-// 实时刷新（每1秒拉取最新队列）
-setInterval(() => {
-    queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+// 监听云端队列（实时同步）
+queueRef.on('value', (snap) => {
+    queue = snap.val() || [];
     refreshScreen();
-}, 1000);
-
-// 监听 storage 事件（跨标签同步）
-window.addEventListener('storage', (e) => {
-    if (e.key === QUEUE_KEY) {
-        queue = JSON.parse(e.newValue || '[]');
-        refreshScreen();
-    }
 });
 </script>
 </body>

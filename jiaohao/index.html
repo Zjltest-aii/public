@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<title>医生叫号</title>
+<title>医生叫号 - 中医科室</title>
 <meta charset="UTF-8">
 <style>
     *{margin:0;padding:0;box-sizing:border-box;font-family:微软雅黑;}
@@ -37,71 +37,109 @@
 </div>
 
 <script>
+const QUEUE_KEY = 'hospital_queue';
+const LAST_DATE_KEY = 'last_date';
+const TIME_CONFIG_KEY = 'time_config';
 let queue = [];
-const channel = new BroadcastChannel('hospital_queue');
 
+// 语音播报
 function voiceSpeak(text) {
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    u.lang='zh-CN'; window.speechSynthesis.speak(u);
+    u.lang='zh-CN';
+    window.speechSynthesis.speak(u);
 }
+
+// 保存取号时间
 function saveTime() {
     const s = document.getElementById('startTime').value;
     const e = document.getElementById('endTime').value;
-    localStorage.setItem('timeConfig', JSON.stringify({start:s, end:e}));
+    localStorage.setItem(TIME_CONFIG_KEY, JSON.stringify({start:s, end:e}));
     alert('设置成功');
 }
-function sync() {
-    localStorage.setItem('queue', JSON.stringify(queue));
-    channel.postMessage({type:'sync', queue});
-    render();
-}
+
+// 渲染队列
 function render() {
     const list = document.getElementById('queueList');
     list.innerHTML = '';
-    queue.forEach(i=>{
-        const d=document.createElement('div');
-        d.className='queue-item';
-        d.innerHTML=`<span>${i.num}号 ${i.name}</span><span class="${i.status=='叫号中'?'calling':''}">${i.status}</span>`;
-        list.appendChild(d);
+    queue.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'queue-item';
+        div.innerHTML = `<span>${item.num}号 ${item.name}</span><span class="${item.status === '叫号中' ? 'calling' : ''}">${item.status}</span>`;
+        list.appendChild(div);
     });
-    const cur=queue.find(i=>i.status=='叫号中');
-    document.getElementById('currentNum').innerText=cur?`${cur.num}号 ${cur.name}`:'无';
-}
-function callNumber() {
-    const idx=queue.findIndex(i=>i.status=='等待中');
-    if(idx==-1){voiceSpeak('排队已完成');return;}
-    queue.forEach(i=>i.status=='叫号中'&&(i.status='已就诊'));
-    queue[idx].status='叫号中'; sync();
-    voiceSpeak(`请${queue[idx].num}号${queue[idx].name}患者到中医科室就诊`);
-}
-function repeatCall() {
-    const cur=queue.find(i=>i.status=='叫号中');
-    if(!cur){voiceSpeak('当前无叫号患者');return;}
-    voiceSpeak(`请${cur.num}号${cur.name}患者尽快就诊`);
-}
-function passNumber() {
-    const idx=queue.findIndex(i=>i.status=='叫号中');
-    if(idx!==-1){queue[idx].status='已过号';sync();callNumber();}
-}
-function resetQueue() {
-    if(!confirm('确定重置？'))return;
-    queue=[]; localStorage.setItem('lastDate',new Date().toDateString()); sync();
+    const cur = queue.find(i => i.status === '叫号中');
+    document.getElementById('currentNum').innerText = cur ? `${cur.num}号 ${cur.name}` : '无';
 }
 
-channel.onmessage=e=>{
-    if(e.data.type=='sync'){
-        queue=e.data.queue; render();
+// 下一号
+function callNumber() {
+    queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+    const idx = queue.findIndex(i => i.status === '等待中');
+    if (idx === -1) {
+        voiceSpeak('排队已完成');
+        return;
     }
-};
-setInterval(()=>{
-    queue=JSON.parse(localStorage.getItem('queue')||'[]');
+    // 重置之前的叫号中状态
+    queue.forEach(i => i.status === '叫号中' && (i.status = '已就诊'));
+    queue[idx].status = '叫号中';
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
     render();
-},1000);
-window.onload=()=>{
-    const cfg=JSON.parse(localStorage.getItem('timeConfig')||'{"start":"08:00","end":"17:00"}');
-    document.getElementById('startTime').value=cfg.start;
-    document.getElementById('endTime').value=cfg.end;
+    voiceSpeak(`请${queue[idx].num}号${queue[idx].name}患者到中医科室就诊`);
+}
+
+// 重复叫号
+function repeatCall() {
+    queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+    const cur = queue.find(i => i.status === '叫号中');
+    if (!cur) {
+        voiceSpeak('当前无叫号患者');
+        return;
+    }
+    voiceSpeak(`请${cur.num}号${cur.name}患者尽快就诊`);
+}
+
+// 过号
+function passNumber() {
+    queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+    const idx = queue.findIndex(i => i.status === '叫号中');
+    if (idx !== -1) {
+        queue[idx].status = '已过号';
+        localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+        render();
+        callNumber(); // 自动叫下一号
+    }
+}
+
+// 重置队列
+function resetQueue() {
+    if (!confirm('确定重置今日排队？')) return;
+    queue = [];
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+    localStorage.setItem(LAST_DATE_KEY, new Date().toDateString());
+    render();
+}
+
+// 实时刷新（每1秒拉取最新队列）
+setInterval(() => {
+    queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+    render();
+}, 1000);
+
+// 监听 storage 事件（跨标签同步）
+window.addEventListener('storage', (e) => {
+    if (e.key === QUEUE_KEY) {
+        queue = JSON.parse(e.newValue || '[]');
+        render();
+    }
+});
+
+// 初始化时间配置
+window.onload = () => {
+    const cfg = JSON.parse(localStorage.getItem(TIME_CONFIG_KEY) || '{"start":"08:00","end":"17:00"}');
+    document.getElementById('startTime').value = cfg.start;
+    document.getElementById('endTime').value = cfg.end;
 };
 </script>
+</body>
 </html>

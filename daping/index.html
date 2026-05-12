@@ -1,54 +1,55 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <title>排队显示大屏 - 中医科室</title>
-    <style>
-        * {margin:0; padding:0; box-sizing:border-box; font-family: "微软雅黑";}
-        body {background:#0a1629; color:white; padding:40px 20px;}
-        .title {text-align:center; font-size:36px; margin-bottom:40px; color:#ffd700;}
-        .current-call {background:#19be6b; padding:30px; text-align:center; border-radius:12px; margin-bottom:30px;}
-        .current-call .num {font-size:60px; font-weight:bold; color:#ffd700;}
-        .queue {max-width:800px; margin:0 auto;}
-        .item {display:flex; justify-content:space-between; padding:15px; background:rgba(255,255,255,0.1); margin-bottom:8px; border-radius:6px; font-size:18px;}
-    </style>
-</head>
-<body>
-    <h1 class="title">中医科室 - 实时叫号大屏</h1>
-    <div class="current-call">
-        <div id="current" class="num">等待叫号</div>
-    </div>
-    <div class="queue" id="queueList"></div>
+<title>叫号大屏</title>
+<meta charset="UTF-8">
+<style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:微软雅黑;}
+    body{background:#0a1629;color:white;padding:40px 20px;}
+    .title{text-align:center;font-size:36px;margin-bottom:40px;color:#ffd700;}
+    .current{background:#19be6b;padding:30px;text-align:center;border-radius:12px;margin-bottom:30px;}
+    .num{font-size:60px;font-weight:bold;color:#ffd700;}
+    .item{display:flex;justify-content:space-between;padding:15px;background:rgba(255,255,255,0.1);margin-bottom:8px;border-radius:6px;font-size:18px;}
+</style>
 
-    <script>
-        let lastNum = null;
-        function voiceSpeak(text) {
-            window.speechSynthesis.cancel();
-            const u = new SpeechSynthesisUtterance(text);
-            u.lang = 'zh-CN'; u.rate = 1;
-            window.speechSynthesis.speak(u);
-        }
-        function refresh() {
-            const queue = JSON.parse(localStorage.getItem('queue') || '[]');
-            const cur = queue.find(i => i.status === '叫号中');
-            document.getElementById('current').innerText = cur ? `${cur.num}号 ${cur.name}` : '等待叫号';
-            
-            if (cur && cur.num !== lastNum) {
-                voiceSpeak(`请${cur.num}号${cur.name}患者到中医科室就诊`);
-                lastNum = cur.num;
-            }
-            
-            const list = document.getElementById('queueList');
-            list.innerHTML = '';
-            queue.filter(i => i.status === '等待中').forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'item';
-                div.innerText = `${item.num}号 - ${item.name}`;
-                list.appendChild(div);
-            });
-        }
-        setInterval(refresh, 1000);
-        window.onload = refresh;
-    </script>
+<h1 class="title">中医科室 - 实时叫号</h1>
+<div class="current"><div id="current" class="num">等待叫号</div></div>
+<div id="queueList"></div>
+
+<script>
+let queue = [];
+let lastNum = null;
+const channel = new BroadcastChannel('hospital_queue');
+
+function voiceSpeak(text) {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang='zh-CN'; window.speechSynthesis.speak(u);
+}
+function refresh() {
+    const cur=queue.find(i=>i.status=='叫号中');
+    document.getElementById('current').innerText=cur?`${cur.num}号 ${cur.name}`:'等待叫号';
+    const list=document.getElementById('queueList');
+    list.innerHTML='';
+    queue.filter(i=>i.status=='等待中').forEach(i=>{
+        const d=document.createElement('div');
+        d.className='item';
+        d.innerText=`${i.num}号 - ${i.name}`;
+        list.appendChild(d);
+    });
+    if(cur && cur.num!==lastNum){
+        voiceSpeak(`请${cur.num}号${cur.name}患者到中医科室就诊`);
+        lastNum=cur.num;
+    }
+}
+channel.onmessage=e=>{
+    if(e.data.type=='sync'){
+        queue=e.data.queue; refresh();
+    }
+};
+setInterval(()=>{
+    queue=JSON.parse(localStorage.getItem('queue')||'[]');
+    refresh();
+},1000);
+</script>
 </body>
 </html>

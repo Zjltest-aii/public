@@ -26,11 +26,15 @@
     </div>
 
 <script>
+// 全局队列
 let queue = [];
-const channel = new BroadcastChannel('hospital_queue');
+const QUEUE_KEY = 'hospital_queue';
+const LAST_DATE_KEY = 'last_date';
+const TIME_CONFIG_KEY = 'time_config';
 
+// 时间配置
 function getTimeConfig() {
-    return JSON.parse(localStorage.getItem('timeConfig') || '{"start":"08:00","end":"17:00"}');
+    return JSON.parse(localStorage.getItem(TIME_CONFIG_KEY) || '{"start":"08:00","end":"17:00"}');
 }
 function formatTime(d) {
     const h = String(d.getHours()).padStart(2,0);
@@ -44,31 +48,54 @@ function isInTime() {
 }
 document.getElementById('timeRange').innerText = `${getTimeConfig().start} ~ ${getTimeConfig().end}`;
 
-channel.onmessage = (e) => {
-    if(e.data.type === 'sync') queue = e.data.queue;
-};
+// 每日重置
+function checkDailyReset() {
+    const today = new Date().toDateString();
+    const lastDate = localStorage.getItem(LAST_DATE_KEY);
+    if (lastDate !== today) {
+        queue = [];
+        localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+        localStorage.setItem(LAST_DATE_KEY, today);
+    }
+}
 
+// 取号
 function takeNumber() {
     const name = document.getElementById('name').value.trim();
-    if(!name) { document.getElementById('tip').innerText = "请输入姓名！"; return; }
-    if(!isInTime()) { document.getElementById('tip').innerText = "不在取号时间内！"; return; }
-
-    const today = new Date().toDateString();
-    const lastDate = localStorage.getItem('lastDate');
-    if(lastDate !== today) {
-        queue = [];
-        localStorage.setItem('lastDate', today);
+    if (!name) {
+        document.getElementById('tip').innerText = "请输入姓名！";
+        return;
+    }
+    if (!isInTime()) {
+        document.getElementById('tip').innerText = "不在取号时间内！";
+        return;
     }
 
+    checkDailyReset();
+    queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
     const newNum = queue.length + 1;
-    queue.push({name, num:newNum, status:'等待中'});
-    localStorage.setItem('queue', JSON.stringify(queue));
-
-    channel.postMessage({type:'sync', queue});
+    queue.push({ name, num: newNum, status: '等待中' });
+    
+    // 写入 localStorage（触发跨设备同步）
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+    
     document.getElementById('success').innerText = `取号成功！您是${newNum}号`;
     document.getElementById('name').value = '';
     document.getElementById('tip').innerText = '';
 }
+
+// 实时刷新（每1秒拉取最新队列）
+setInterval(() => {
+    queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+    checkDailyReset();
+}, 1000);
+
+// 监听 storage 事件（跨标签同步）
+window.addEventListener('storage', (e) => {
+    if (e.key === QUEUE_KEY) {
+        queue = JSON.parse(e.newValue || '[]');
+    }
+});
 </script>
 </body>
 </html>
